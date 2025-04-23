@@ -1,0 +1,19 @@
+{
+  "name": "typing-battle-server",
+  "version": "1.0.0",
+  "description": "Server for 5대5 온라인 멀티플레이 타자 게임",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "path": "^0.12.7",
+    "socket.io": "^4.6.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}

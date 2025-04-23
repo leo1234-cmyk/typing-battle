@@ -1,0 +1,19 @@
+{
+  "name": "typing-battle",
+  "version": "1.0.0",
+  "description": "5대5 온라인 멀티플레이 한글 타자 게임",
+  "main": "index.js",
+  "scripts": {
+    "start": "cd server && node src/index.js",
+    "build": "cd client && npm install && npm run build",
+    "server": "cd server && npm start",
+    "client": "cd client && npm start",
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install"
+  },
+  "keywords": ["typing", "game", "multiplayer", "korean"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+} 
