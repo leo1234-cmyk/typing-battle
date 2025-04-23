@@ -12,7 +12,7 @@
 
 ## 온라인에서 플레이하기
 
-[여기서 게임 플레이하기](https://your-app-url.onrender.com)
+[여기서 게임 플레이하기](https://typing-battle-game.onrender.com)
 
 ## 로컬에서 실행하기
 
