@@ -15,7 +15,7 @@ export const SocketProvider = ({ children }) => {
     // 개발 환경과 배포 환경을 자동으로 처리
     const newSocket = process.env.NODE_ENV === 'production'
       ? io() // 프로덕션에서는 같은 도메인 사용
-      : io('http://localhost:3001'); // 개발 환경에서는 별도 서버 사용
+      : io(process.env.REACT_APP_SERVER_URL || 'http://localhost:3002'); // 개발 환경에서는 별도 서버 사용
     
     newSocket.on('connect', () => {
       console.log('소켓 연결됨');
@@ -51,9 +51,9 @@ export const SocketProvider = ({ children }) => {
   }, [socket, connected]);
   
   // 방 생성
-  const createRoom = useCallback(() => {
+  const createRoom = useCallback((options = {}) => {
     if (socket && connected) {
-      socket.emit('create-room');
+      socket.emit('create-room', options);
     }
   }, [socket, connected]);
   

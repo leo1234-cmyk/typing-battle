@@ -1,17 +1,15 @@
-# dependencies
-/node_modules
-/client/node_modules
-/server/node_modules
+# Dependencies
+node_modules/
 /.pnp
 .pnp.js
 
-# testing
+# Testing
 /coverage
 
-# production
+# Production
 /client/build
 
-# misc
+# Misc
 .DS_Store
 .env
 .env.local
