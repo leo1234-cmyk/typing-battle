@@ -488,9 +488,11 @@ function GameRoomScreen() {
   const handleChangeTeam = (playerId) => {
     // 자신의 ID인 경우에만 처리
     if (playerId === socket.id) {
+      console.log('Requesting team change for self');
       socket.emit('change-team');
     } else if (isRoomCreator) {
       // 관리자인 경우 다른 플레이어의 팀도 변경 가능
+      console.log(`Admin requesting team change for player: ${playerId}`);
       socket.emit('admin-change-team', playerId);
     }
   };
@@ -537,7 +539,7 @@ function GameRoomScreen() {
       <Container>
         <WaitingContainer>
           <TeamsPanel>
-            <PanelTitle>팀 구성</PanelTitle>
+            <PanelTitle>팀 구성 ({totalPlayers}/{maxTeamSize * 2}명)</PanelTitle>
             
             <TeamSection>
               <TeamHeader team="red">빨강팀 ({redTeam.length}/{maxTeamSize}명)</TeamHeader>
@@ -546,9 +548,8 @@ function GameRoomScreen() {
                   <PlayerCard key={player.id} team="red" isCurrentUser={player.id === socket.id}>
                     <PlayerAvatar team="red">{player.nickname.charAt(0).toUpperCase()}</PlayerAvatar>
                     <PlayerNickname>{player.nickname} {player.id === socket.id && '(나)'}</PlayerNickname>
-                    {/* 자신이거나 관리자인 경우에만 팀 변경 버튼 표시 */}
                     {(player.id === socket.id || isRoomCreator) && (
-                      <ActionButton onClick={() => handleChangeTeam(player.id)}>
+                      <ActionButton onClick={() => handleChangeTeam(player.id)} title={isRoomCreator && player.id !== socket.id ? "관리자: 팀 변경" : "팀 변경"}>
                         <span role="img" aria-label="change team">🔄</span>
                       </ActionButton>
                     )}
@@ -569,9 +570,8 @@ function GameRoomScreen() {
                   <PlayerCard key={player.id} team="blue" isCurrentUser={player.id === socket.id}>
                     <PlayerAvatar team="blue">{player.nickname.charAt(0).toUpperCase()}</PlayerAvatar>
                     <PlayerNickname>{player.nickname} {player.id === socket.id && '(나)'}</PlayerNickname>
-                    {/* 자신이거나 관리자인 경우에만 팀 변경 버튼 표시 */}
                     {(player.id === socket.id || isRoomCreator) && (
-                      <ActionButton onClick={() => handleChangeTeam(player.id)}>
+                      <ActionButton onClick={() => handleChangeTeam(player.id)} title={isRoomCreator && player.id !== socket.id ? "관리자: 팀 변경" : "팀 변경"}>
                         <span role="img" aria-label="change team">🔄</span>
                       </ActionButton>
                     )}
@@ -610,6 +610,9 @@ function GameRoomScreen() {
                       disabled={teamSettings.maxTeamSize >= 7}
                     >+</InputButton>
                   </InputContainer>
+                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '5px' }}>
+                    설정된 인원: {maxTeamSize}명 × 2팀 = {maxTeamSize * 2}명
+                  </p>
                 </SettingGroup>
                 
                 <SettingGroup>
@@ -630,6 +633,9 @@ function GameRoomScreen() {
                       onClick={() => handleCardCountChange(teamSettings.totalCards + 2)}
                     >+</InputButton>
                   </InputContainer>
+                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '5px' }}>
+                    각 팀당 {teamSettings.totalCards / 2}개씩 배정됨
+                  </p>
                 </SettingGroup>
                 
                 <StartButton 
@@ -648,9 +654,15 @@ function GameRoomScreen() {
               <>
                 <SettingGroup>
                   <SettingLabel>팀당 최대 인원: {teamSettings.maxTeamSize}명</SettingLabel>
+                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '5px' }}>
+                    총 {teamSettings.maxTeamSize * 2}명 (빨강팀 {teamSettings.maxTeamSize}명 + 파랑팀 {teamSettings.maxTeamSize}명)
+                  </p>
                 </SettingGroup>
                 <SettingGroup>
                   <SettingLabel>카드 총 개수: {teamSettings.totalCards}개</SettingLabel>
+                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '5px' }}>
+                    각 팀당 {teamSettings.totalCards / 2}개씩 배정됨
+                  </p>
                 </SettingGroup>
                 <p style={{ textAlign: 'center', color: '#666' }}>
                   방장이 게임을 시작하기를 기다리는 중입니다...
@@ -658,8 +670,13 @@ function GameRoomScreen() {
               </>
             )}
             
-            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <div style={{ marginTop: '20px', textAlign: 'center', padding: '10px', background: '#f5f5f5', borderRadius: '5px' }}>
               <p>현재 플레이어: {totalPlayers}/{maxTeamSize * 2}명</p>
+              {isRoomCreator && (
+                <p style={{ fontSize: '0.9rem', color: '#4caf50', marginTop: '5px' }}>
+                  방장 권한: 방 설정 변경 및 플레이어 팀 이동 가능
+                </p>
+              )}
             </div>
           </SettingsPanel>
         </WaitingContainer>
