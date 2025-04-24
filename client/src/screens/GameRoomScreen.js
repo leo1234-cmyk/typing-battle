@@ -324,6 +324,7 @@ function GameRoomScreen() {
     
     // 방 입장 성공
     socket.on('room-joined', (data) => {
+      console.log('Room joined with settings:', data.settings);
       setGameState(prev => ({
         ...prev,
         redTeam: data.redTeam,
@@ -449,6 +450,7 @@ function GameRoomScreen() {
     
     // 게임 설정 업데이트
     socket.on('room-settings-updated', (settings) => {
+      console.log('Settings updated:', settings);
       setTeamSettings(settings);
     });
     
@@ -487,6 +489,9 @@ function GameRoomScreen() {
     // 자신의 ID인 경우에만 처리
     if (playerId === socket.id) {
       socket.emit('change-team');
+    } else if (isRoomCreator) {
+      // 관리자인 경우 다른 플레이어의 팀도 변경 가능
+      socket.emit('admin-change-team', playerId);
     }
   };
   
@@ -508,6 +513,7 @@ function GameRoomScreen() {
   // 팀 크기 변경
   const handleTeamSizeChange = (value) => {
     const newSize = Math.min(Math.max(1, value), 7);
+    console.log('Updating team size to:', newSize);
     handleUpdateSettings({ maxTeamSize: newSize });
   };
   
@@ -523,6 +529,7 @@ function GameRoomScreen() {
     const redTeam = gameState.redTeam || [];
     const blueTeam = gameState.blueTeam || [];
     const maxTeamSize = teamSettings.maxTeamSize || 5;
+    console.log('Current team settings:', teamSettings);
     const totalPlayers = redTeam.length + blueTeam.length;
     const canStartGame = redTeam.length >= 1 && blueTeam.length >= 1;
     
@@ -539,7 +546,8 @@ function GameRoomScreen() {
                   <PlayerCard key={player.id} team="red" isCurrentUser={player.id === socket.id}>
                     <PlayerAvatar team="red">{player.nickname.charAt(0).toUpperCase()}</PlayerAvatar>
                     <PlayerNickname>{player.nickname} {player.id === socket.id && '(나)'}</PlayerNickname>
-                    {player.id === socket.id && (
+                    {/* 자신이거나 관리자인 경우에만 팀 변경 버튼 표시 */}
+                    {(player.id === socket.id || isRoomCreator) && (
                       <ActionButton onClick={() => handleChangeTeam(player.id)}>
                         <span role="img" aria-label="change team">🔄</span>
                       </ActionButton>
@@ -561,7 +569,8 @@ function GameRoomScreen() {
                   <PlayerCard key={player.id} team="blue" isCurrentUser={player.id === socket.id}>
                     <PlayerAvatar team="blue">{player.nickname.charAt(0).toUpperCase()}</PlayerAvatar>
                     <PlayerNickname>{player.nickname} {player.id === socket.id && '(나)'}</PlayerNickname>
-                    {player.id === socket.id && (
+                    {/* 자신이거나 관리자인 경우에만 팀 변경 버튼 표시 */}
+                    {(player.id === socket.id || isRoomCreator) && (
                       <ActionButton onClick={() => handleChangeTeam(player.id)}>
                         <span role="img" aria-label="change team">🔄</span>
                       </ActionButton>
@@ -594,7 +603,7 @@ function GameRoomScreen() {
                       min="1" 
                       max="7" 
                       value={teamSettings.maxTeamSize} 
-                      onChange={(e) => handleTeamSizeChange(parseInt(e.target.value))}
+                      onChange={(e) => handleTeamSizeChange(parseInt(e.target.value) || 1)}
                     />
                     <InputButton 
                       onClick={() => handleTeamSizeChange(teamSettings.maxTeamSize + 1)}
@@ -615,7 +624,7 @@ function GameRoomScreen() {
                       min="4" 
                       step="2" 
                       value={teamSettings.totalCards} 
-                      onChange={(e) => handleCardCountChange(parseInt(e.target.value))}
+                      onChange={(e) => handleCardCountChange(parseInt(e.target.value) || 4)}
                     />
                     <InputButton 
                       onClick={() => handleCardCountChange(teamSettings.totalCards + 2)}

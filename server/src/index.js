@@ -271,6 +271,8 @@ io.on('connection', (socket) => {
     // 카드 수 유효성 검사 (짝수로 만들기)
     const validatedTotalCards = Math.round(totalCards / 2) * 2;
     
+    console.log(`Creating room with maxTeamSize: ${validatedMaxTeamSize}, totalCards: ${validatedTotalCards}`);
+    
     initializeGameRoom(roomId, {
       maxTeamSize: validatedMaxTeamSize,
       totalCards: validatedTotalCards
@@ -518,9 +520,44 @@ io.on('connection', (socket) => {
     
     if (!player) return;
     
+    changePlayerTeam(roomId, player);
+  });
+  
+  // 관리자 권한으로 다른 플레이어의 팀 변경 (새로 추가)
+  socket.on('admin-change-team', (playerId) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !gameRooms[roomId] || gameRooms[roomId].status !== 'waiting') {
+      return;
+    }
+    
+    const room = gameRooms[roomId];
+    
+    // 관리자인지 확인 (첫 번째 입장한 플레이어)
+    const isAdmin = room.players.length > 0 && room.players[0].id === socket.id;
+    
+    if (!isAdmin) {
+      socket.emit('error', '관리자 권한이 없습니다.');
+      return;
+    }
+    
+    // 변경할 플레이어 찾기
+    const player = room.players.find(p => p.id === playerId);
+    
+    if (!player) {
+      socket.emit('error', '해당 플레이어를 찾을 수 없습니다.');
+      return;
+    }
+    
+    changePlayerTeam(roomId, player);
+  });
+  
+  // 플레이어 팀 변경 함수 (코드 중복 방지)
+  function changePlayerTeam(roomId, player) {
+    const room = gameRooms[roomId];
+    
     // 현재 팀에서 제거
     if (player.team === 'red') {
-      const teamIndex = room.redTeam.findIndex(p => p.id === socket.id);
+      const teamIndex = room.redTeam.findIndex(p => p.id === player.id);
       if (teamIndex !== -1) room.redTeam.splice(teamIndex, 1);
       
       // 상대 팀에 자리가 있는지 확인
@@ -534,7 +571,7 @@ io.on('connection', (socket) => {
         return;
       }
     } else if (player.team === 'blue') {
-      const teamIndex = room.blueTeam.findIndex(p => p.id === socket.id);
+      const teamIndex = room.blueTeam.findIndex(p => p.id === player.id);
       if (teamIndex !== -1) room.blueTeam.splice(teamIndex, 1);
       
       // 상대 팀에 자리가 있는지 확인
@@ -554,7 +591,7 @@ io.on('connection', (socket) => {
       redTeam: room.redTeam,
       blueTeam: room.blueTeam
     });
-  });
+  }
   
   // 연결 끊김 처리
   socket.on('disconnect', () => {

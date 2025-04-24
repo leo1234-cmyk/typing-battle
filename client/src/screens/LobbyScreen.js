@@ -283,9 +283,10 @@ function LobbyScreen() {
   };
   
   const handleCreateRoom = () => {
+    console.log("Creating room with settings:", { maxTeamSize: teamSize, totalCards: totalCards });
     createRoom({
-      maxTeamSize: teamSize,
-      totalCards: totalCards
+      maxTeamSize: parseInt(teamSize),
+      totalCards: parseInt(totalCards)
     });
     setShowModal(false);
   };
