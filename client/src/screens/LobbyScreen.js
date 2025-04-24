@@ -244,6 +244,11 @@ function LobbyScreen() {
         setRooms(roomsList);
       });
       
+      // 새로운 room-list-updated 이벤트 처리 추가
+      socket.on('room-list-updated', (roomsList) => {
+        setRooms(roomsList);
+      });
+      
       // 방 생성 완료 이벤트
       socket.on('room-created', ({ roomId }) => {
         joinRoom(roomId);
@@ -261,6 +266,7 @@ function LobbyScreen() {
       
       return () => {
         socket.off('available-rooms');
+        socket.off('room-list-updated');
         socket.off('room-created');
         socket.off('room-joined');
         socket.off('join-error');

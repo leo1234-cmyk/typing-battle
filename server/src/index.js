@@ -189,8 +189,50 @@ function checkGameEnd(roomId) {
   // 게임 종료 처리
   if (winner) {
     room.status = 'finished';
-    io.to(roomId).emit('game-end', { winner, scores: room.scores });
+    
+    // 플레이어 개인 성과 계산
+    const playerStats = calculatePlayerStats(room);
+    
+    io.to(roomId).emit('game-end', { 
+      winner, 
+      scores: room.scores,
+      playerStats: playerStats // 개인 성과 정보 추가
+    });
   }
+}
+
+// 개인 성과 계산 함수 (새로 추가)
+function calculatePlayerStats(room) {
+  // 각 플레이어별 뒤집은 카드 수 계산
+  const playerScores = {};
+  
+  // 플레이어 초기화
+  room.players.forEach(player => {
+    playerScores[player.id] = {
+      id: player.id,
+      nickname: player.nickname,
+      team: player.team,
+      score: 0
+    };
+  });
+  
+  // 카드를 뒤집은 플레이어들의 점수 계산
+  room.cards.forEach(card => {
+    if (card.flippedBy && playerScores[card.flippedBy]) {
+      playerScores[card.flippedBy].score += 1;
+    }
+  });
+  
+  // 점수 기준 내림차순 정렬하여 배열로 변환
+  const rankedPlayers = Object.values(playerScores)
+    .sort((a, b) => b.score - a.score);
+  
+  // 순위 추가
+  rankedPlayers.forEach((player, index) => {
+    player.rank = index + 1;
+  });
+  
+  return rankedPlayers;
 }
 
 // 소켓 연결 처리
@@ -234,10 +276,26 @@ io.on('connection', (socket) => {
       totalCards: validatedTotalCards
     });
     
+    // 방 생성자에게 알림
     socket.emit('room-created', { 
       roomId,
       settings: gameRooms[roomId].settings
     });
+    
+    // 모든 클라이언트에게 새 방 생성 알림 (이 부분 추가)
+    // 로비에 있는 모든 사용자에게 새 방 정보 브로드캐스트
+    io.emit('room-list-updated', Object.keys(gameRooms)
+      .filter(id => gameRooms[id].status === 'waiting')
+      .map(id => {
+        const room = gameRooms[id];
+        return {
+          id,
+          players: room.players.length,
+          maxPlayers: room.settings.maxTeamSize * 2,
+          settings: room.settings
+        };
+      })
+    );
   });
   
   // 게임룸 입장
@@ -358,6 +416,7 @@ io.on('connection', (socket) => {
       const newMaxTeamSize = Math.min(Math.max(1, settings.maxTeamSize), 7);
       room.settings.maxTeamSize = newMaxTeamSize;
       room.settings.requiredPlayers = newMaxTeamSize * 2;
+      console.log(`Updated maxTeamSize to ${newMaxTeamSize}, requiredPlayers: ${room.settings.requiredPlayers}`);
     }
     
     // 총 카드 수 변경 (짝수로 만들기)
@@ -389,6 +448,20 @@ io.on('connection', (socket) => {
     
     // 모든 플레이어에게 설정 변경 알림
     io.to(roomId).emit('room-settings-updated', room.settings);
+    
+    // 로비에 있는 모든 플레이어에게도 업데이트된 방 정보 전송
+    io.emit('room-list-updated', Object.keys(gameRooms)
+      .filter(id => gameRooms[id].status === 'waiting')
+      .map(id => {
+        const room = gameRooms[id];
+        return {
+          id,
+          players: room.players.length,
+          maxPlayers: room.settings.maxTeamSize * 2,
+          settings: room.settings
+        };
+      })
+    );
   });
   
   // 타이핑 입력 처리
@@ -413,6 +486,10 @@ io.on('connection', (socket) => {
       card.flippedBy = player.id;
       card.flippedTeam = player.team;
       
+      // 새 단어로 교체 (이 부분 추가)
+      const newWord = generateKoreanWords(1)[0];
+      card.word = newWord;
+      
       // 모든 플레이어에게 카드 상태 업데이트 전송
       io.to(roomId).emit('card-flipped', {
         cardIndex,
@@ -420,7 +497,8 @@ io.on('connection', (socket) => {
           id: player.id,
           nickname: player.nickname
         },
-        flippedTeam: player.team
+        flippedTeam: player.team,
+        newWord: newWord // 새 단어 정보 추가
       });
       
       // 승리 조건 체크

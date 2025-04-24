@@ -418,13 +418,14 @@ function GameRoomScreen() {
     });
     
     // 카드 뒤집기 이벤트
-    socket.on('card-flipped', ({ cardIndex, flippedBy, flippedTeam }) => {
+    socket.on('card-flipped', ({ cardIndex, flippedBy, flippedTeam, newWord }) => {
       setGameState(prev => {
         const updatedCards = [...prev.cards];
         updatedCards[cardIndex] = {
           ...updatedCards[cardIndex],
           flippedBy,
-          flippedTeam
+          flippedTeam,
+          word: newWord
         };
         
         return {
@@ -714,6 +715,66 @@ function GameRoomScreen() {
                 <div className="score">{gameState.gameResult.scores.blue}</div>
               </div>
             </div>
+            
+            {/* 플레이어 랭킹 정보 표시 (추가) */}
+            {gameState.gameResult.playerStats && (
+              <div className="player-rankings" style={{ marginTop: '20px', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>플레이어 랭킹</h3>
+                <div className="rankings-list" style={{ 
+                  background: '#f8f8f8', 
+                  borderRadius: '5px', 
+                  padding: '10px',
+                  maxHeight: '200px',
+                  overflowY: 'auto' 
+                }}>
+                  {gameState.gameResult.playerStats.map(player => (
+                    <div 
+                      key={player.id} 
+                      style={{
+                        display: 'flex',
+                        padding: '8px',
+                        margin: '4px 0',
+                        background: player.id === socket.id ? '#fff3e0' : 'white',
+                        borderRadius: '4px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                        borderLeft: `4px solid ${player.team === 'red' ? '#e53935' : '#1e88e5'}`
+                      }}
+                    >
+                      <span style={{ 
+                        width: '30px', 
+                        fontWeight: 'bold', 
+                        textAlign: 'center' 
+                      }}>{player.rank}등</span>
+                      <span style={{ 
+                        flex: 1, 
+                        marginLeft: '10px',
+                        fontWeight: player.id === socket.id ? 'bold' : 'normal'
+                      }}>
+                        {player.nickname} {player.id === socket.id ? '(나)' : ''}
+                      </span>
+                      <span style={{ 
+                        marginLeft: '10px',
+                        fontWeight: 'bold'
+                      }}>{player.score}점</span>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* 현재 사용자 등수 강조 표시 */}
+                {gameState.gameResult.playerStats.find(p => p.id === socket.id) && (
+                  <div style={{
+                    marginTop: '10px',
+                    padding: '10px',
+                    background: '#ffd54f',
+                    borderRadius: '5px',
+                    textAlign: 'center',
+                    fontWeight: 'bold'
+                  }}>
+                    당신의 등수: {gameState.gameResult.playerStats.find(p => p.id === socket.id).rank}등
+                  </div>
+                )}
+              </div>
+            )}
             
             <button onClick={handleReturnToLobby}>
               로비로 돌아가기
