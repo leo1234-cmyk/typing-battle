@@ -1,11 +1,15 @@
 {
   "name": "typing-battle-server",
   "version": "1.0.0",
-  "description": "Server for 5대5 온라인 멀티플레이 타자 게임",
+  "description": "Server for 5:5 한글 멀티플레이 타이핑 게임",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "heroku-postbuild": "cd .. && cd client && npm install && npm run build && cp -r build ../server/"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "dependencies": {
     "cors": "^2.8.5",

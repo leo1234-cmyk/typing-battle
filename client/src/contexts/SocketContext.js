@@ -8,7 +8,11 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    // 로컬 스토리지에서 사용자 정보 복구
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   
   // 소켓 초기화
   useEffect(() => {
@@ -20,6 +24,16 @@ export const SocketProvider = ({ children }) => {
     newSocket.on('connect', () => {
       console.log('소켓 연결됨');
       setConnected(true);
+      
+      // 연결 시 저장된, 유저 정보가 있으면 로비 재참여
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        if (userData && userData.nickname) {
+          console.log('연결 복구, 닉네임으로 로비 재참여:', userData.nickname);
+          newSocket.emit('join-lobby', userData.nickname);
+        }
+      }
     });
     
     newSocket.on('disconnect', () => {
@@ -35,18 +49,34 @@ export const SocketProvider = ({ children }) => {
     };
   }, []);
   
+  // 사용자 정보 변경 시 로컬 스토리지에 저장
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+  }, [user]);
+  
   // 로비 입장
   const joinLobby = useCallback((nickname) => {
     if (socket && connected) {
+      console.log(`Joining lobby with nickname: ${nickname}`);
       socket.emit('join-lobby', nickname);
       
-      // 이벤트 리스너 등록 (한 번만)
-      socket.once('lobby-joined', (userData) => {
-        setUser({
+      // 이벤트 리스너 등록
+      const lobbyJoinedHandler = (userData) => {
+        console.log('Lobby joined with user data:', userData);
+        const userInfo = {
           id: userData.id,
           nickname: userData.nickname
-        });
-      });
+        };
+        setUser(userInfo);
+        localStorage.setItem('user', JSON.stringify(userInfo));
+      };
+      
+      // 이미 등록된 리스너 제거
+      socket.off('lobby-joined');
+      // 새 리스너 등록
+      socket.on('lobby-joined', lobbyJoinedHandler);
     }
   }, [socket, connected]);
   
@@ -71,6 +101,12 @@ export const SocketProvider = ({ children }) => {
     }
   }, [socket, connected]);
   
+  // 로그아웃
+  const logout = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem('user');
+  }, []);
+  
   // 공용 context 값
   const value = {
     socket,
@@ -79,7 +115,8 @@ export const SocketProvider = ({ children }) => {
     joinLobby,
     createRoom,
     joinRoom,
-    typeWord
+    typeWord,
+    logout
   };
   
   return (

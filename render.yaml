@@ -2,9 +2,11 @@ services:
   - type: web
     name: typing-battle
     env: node
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: cd server && npm install && cd ../client && npm install && npm run build && cp -r build ../server/build
+    startCommand: cd server && node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3002
     plan: free 

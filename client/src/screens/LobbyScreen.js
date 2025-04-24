@@ -16,6 +16,29 @@ const WelcomeText = styled.p`
   text-align: center;
 `;
 
+const UserInfo = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 0 20px;
+`;
+
+const LogoutButton = styled.button`
+  padding: 8px 16px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s;
+  
+  &:hover {
+    background-color: #d32f2f;
+  }
+`;
+
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: center;
@@ -227,27 +250,30 @@ function LobbyScreen() {
   const [showModal, setShowModal] = useState(false);
   const [teamSize, setTeamSize] = useState(5);
   const [totalCards, setTotalCards] = useState(40);
-  const { socket, createRoom, joinRoom, user } = useSocket();
+  const { socket, createRoom, joinRoom, user, connected, logout } = useSocket();
   const navigate = useNavigate();
   
   // 사용자가 로그인하지 않은 경우 닉네임 화면으로 리다이렉트
   useEffect(() => {
     if (!user) {
       navigate('/');
+    } else if (socket && connected) {
+      // 사용자가 로그인되었을 때 방 목록 수동 요청
+      console.log('User logged in, requesting room list...');
+      socket.emit('get-available-rooms');
     }
-  }, [user, navigate]);
+  }, [user, navigate, socket, connected]);
   
   // 이용 가능한 방 목록 수신
   useEffect(() => {
     if (socket) {
-      socket.on('available-rooms', (roomsList) => {
+      const handleAvailableRooms = (roomsList) => {
+        console.log('Received room list:', roomsList);
         setRooms(roomsList);
-      });
+      };
       
-      // 새로운 room-list-updated 이벤트 처리 추가
-      socket.on('room-list-updated', (roomsList) => {
-        setRooms(roomsList);
-      });
+      socket.on('available-rooms', handleAvailableRooms);
+      socket.on('room-list-updated', handleAvailableRooms);
       
       // 방 생성 완료 이벤트
       socket.on('room-created', ({ roomId }) => {
@@ -264,15 +290,24 @@ function LobbyScreen() {
         alert(errorMessage);
       });
       
+      // 10초마다 방 목록 자동 갱신
+      const intervalId = setInterval(() => {
+        if (connected && user) {
+          console.log('Refreshing room list...');
+          socket.emit('get-available-rooms');
+        }
+      }, 10000);
+      
       return () => {
-        socket.off('available-rooms');
-        socket.off('room-list-updated');
+        socket.off('available-rooms', handleAvailableRooms);
+        socket.off('room-list-updated', handleAvailableRooms);
         socket.off('room-created');
         socket.off('room-joined');
         socket.off('join-error');
+        clearInterval(intervalId);
       };
     }
-  }, [socket, navigate, joinRoom]);
+  }, [socket, navigate, joinRoom, connected, user]);
   
   const handleOpenModal = () => {
     setShowModal(true);
@@ -317,19 +352,31 @@ function LobbyScreen() {
     }
   };
   
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+  
   return (
     <Container>
       {user && (
-        <WelcomeText>
-          안녕하세요, <strong>{user.nickname}</strong>님! 게임방을 생성하거나 참여해보세요.
-        </WelcomeText>
+        <>
+          <UserInfo>
+            <WelcomeText>
+              안녕하세요, <strong>{user.nickname}</strong>님! 게임방을 생성하거나 참여해보세요.
+            </WelcomeText>
+            <LogoutButton onClick={handleLogout}>
+              로그아웃
+            </LogoutButton>
+          </UserInfo>
+          
+          <ButtonContainer>
+            <CreateRoomButton onClick={handleOpenModal}>
+              새 게임방 만들기
+            </CreateRoomButton>
+          </ButtonContainer>
+        </>
       )}
-      
-      <ButtonContainer>
-        <CreateRoomButton onClick={handleOpenModal}>
-          새 게임방 만들기
-        </CreateRoomButton>
-      </ButtonContainer>
       
       <RoomsContainer>
         <RoomsTitle>참여 가능한 게임방</RoomsTitle>

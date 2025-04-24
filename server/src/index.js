@@ -241,10 +241,34 @@ io.on('connection', (socket) => {
   
   // 닉네임 설정 및 로비 입장
   socket.on('join-lobby', (nickname) => {
-    socket.data.nickname = nickname;
-    socket.emit('lobby-joined', { id: socket.id, nickname });
+    console.log(`User ${nickname} joined the lobby`);
+    socket.nickname = nickname;
+    socket.data.nickname = nickname; // socket.data에도 닉네임 저장
     
-    // 사용 가능한 게임룸 목록 전송
+    // 이용 가능한 게임방 목록 전송
+    const availableRooms = Object.keys(gameRooms)
+      .filter(roomId => gameRooms[roomId].status === 'waiting')
+      .map(roomId => {
+        const room = gameRooms[roomId];
+        return {
+          id: roomId,
+          players: room.players.length,
+          maxPlayers: room.settings.maxTeamSize * 2,
+          settings: room.settings
+        };
+      });
+    
+    // 로비 참가 응답
+    socket.emit('lobby-joined', { id: socket.id, nickname });
+    // 사용 가능한 방 목록 전송
+    socket.emit('available-rooms', availableRooms);
+  });
+  
+  // 방 목록 수동 요청 이벤트 처리
+  socket.on('get-available-rooms', () => {
+    console.log(`User ${socket.nickname || socket.data.nickname || 'unknown'} requested room list`);
+    
+    // 이용 가능한 게임방 목록 전송
     const availableRooms = Object.keys(gameRooms)
       .filter(roomId => gameRooms[roomId].status === 'waiting')
       .map(roomId => {
@@ -284,9 +308,9 @@ io.on('connection', (socket) => {
       settings: gameRooms[roomId].settings
     });
     
-    // 모든 클라이언트에게 새 방 생성 알림 (이 부분 추가)
+    // 모든 클라이언트에게 새 방 생성 알림
     // 로비에 있는 모든 사용자에게 새 방 정보 브로드캐스트
-    io.emit('room-list-updated', Object.keys(gameRooms)
+    const availableRooms = Object.keys(gameRooms)
       .filter(id => gameRooms[id].status === 'waiting')
       .map(id => {
         const room = gameRooms[id];
@@ -296,8 +320,9 @@ io.on('connection', (socket) => {
           maxPlayers: room.settings.maxTeamSize * 2,
           settings: room.settings
         };
-      })
-    );
+      });
+    
+    io.emit('room-list-updated', availableRooms);
   });
   
   // 게임룸 입장
@@ -321,6 +346,13 @@ io.on('connection', (socket) => {
       return;
     }
     
+    // 닉네임 확인
+    const nickname = socket.nickname || socket.data.nickname;
+    if (!nickname) {
+      socket.emit('join-error', '닉네임이 설정되지 않았습니다. 다시 로그인해주세요.');
+      return;
+    }
+    
     // 소켓을 룸에 조인
     socket.join(roomId);
     socket.data.roomId = roomId;
@@ -328,7 +360,7 @@ io.on('connection', (socket) => {
     // 플레이어 정보 생성
     const player = {
       id: socket.id,
-      nickname: socket.data.nickname
+      nickname: nickname
     };
     
     // 팀 배정
@@ -452,7 +484,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('room-settings-updated', room.settings);
     
     // 로비에 있는 모든 플레이어에게도 업데이트된 방 정보 전송
-    io.emit('room-list-updated', Object.keys(gameRooms)
+    const availableRooms = Object.keys(gameRooms)
       .filter(id => gameRooms[id].status === 'waiting')
       .map(id => {
         const room = gameRooms[id];
@@ -462,8 +494,9 @@ io.on('connection', (socket) => {
           maxPlayers: room.settings.maxTeamSize * 2,
           settings: room.settings
         };
-      })
-    );
+      });
+    
+    io.emit('room-list-updated', availableRooms);
   });
   
   // 타이핑 입력 처리
