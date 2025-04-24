@@ -325,10 +325,11 @@ function GameRoomScreen() {
     // 방 입장 성공
     socket.on('room-joined', (data) => {
       console.log('Room joined with settings:', data.settings);
+      console.log('Room joined with teams:', data.redTeam, data.blueTeam);
       setGameState(prev => ({
         ...prev,
-        redTeam: data.redTeam,
-        blueTeam: data.blueTeam
+        redTeam: data.redTeam || [],
+        blueTeam: data.blueTeam || []
       }));
       
       // 설정 정보 업데이트
@@ -342,6 +343,7 @@ function GameRoomScreen() {
     
     // 다른 플레이어 입장
     socket.on('player-joined', (player) => {
+      console.log('Player joined:', player);
       // 새로운 플레이어가 어느 팀에 들어갔는지 확인하고 업데이트
       setGameState(prev => {
         if (player.team === 'red') {
@@ -454,6 +456,16 @@ function GameRoomScreen() {
       setTeamSettings(settings);
     });
     
+    // 팀 업데이트 이벤트 (추가)
+    socket.on('teams-updated', (teams) => {
+      console.log('Teams updated:', teams);
+      setGameState(prev => ({
+        ...prev,
+        redTeam: teams.redTeam || [],
+        blueTeam: teams.blueTeam || []
+      }));
+    });
+    
     // 컴포넌트 언마운트 시 이벤트 리스너 제거
     return () => {
       socket.off('room-joined');
@@ -465,6 +477,7 @@ function GameRoomScreen() {
       socket.off('card-flipped');
       socket.off('game-end');
       socket.off('room-settings-updated');
+      socket.off('teams-updated');
       
       if (countdownInterval.current) {
         clearInterval(countdownInterval.current);
@@ -531,6 +544,7 @@ function GameRoomScreen() {
     const redTeam = gameState.redTeam || [];
     const blueTeam = gameState.blueTeam || [];
     const maxTeamSize = teamSettings.maxTeamSize || 5;
+    console.log('Current teams:', redTeam, blueTeam);
     console.log('Current team settings:', teamSettings);
     const totalPlayers = redTeam.length + blueTeam.length;
     const canStartGame = redTeam.length >= 1 && blueTeam.length >= 1;
@@ -546,7 +560,7 @@ function GameRoomScreen() {
               <PlayersGrid>
                 {redTeam.map(player => (
                   <PlayerCard key={player.id} team="red" isCurrentUser={player.id === socket.id}>
-                    <PlayerAvatar team="red">{player.nickname.charAt(0).toUpperCase()}</PlayerAvatar>
+                    <PlayerAvatar team="red">{player.nickname ? player.nickname.charAt(0).toUpperCase() : '?'}</PlayerAvatar>
                     <PlayerNickname>{player.nickname} {player.id === socket.id && '(나)'}</PlayerNickname>
                     {(player.id === socket.id || isRoomCreator) && (
                       <ActionButton onClick={() => handleChangeTeam(player.id)} title={isRoomCreator && player.id !== socket.id ? "관리자: 팀 변경" : "팀 변경"}>
@@ -568,7 +582,7 @@ function GameRoomScreen() {
               <PlayersGrid>
                 {blueTeam.map(player => (
                   <PlayerCard key={player.id} team="blue" isCurrentUser={player.id === socket.id}>
-                    <PlayerAvatar team="blue">{player.nickname.charAt(0).toUpperCase()}</PlayerAvatar>
+                    <PlayerAvatar team="blue">{player.nickname ? player.nickname.charAt(0).toUpperCase() : '?'}</PlayerAvatar>
                     <PlayerNickname>{player.nickname} {player.id === socket.id && '(나)'}</PlayerNickname>
                     {(player.id === socket.id || isRoomCreator) && (
                       <ActionButton onClick={() => handleChangeTeam(player.id)} title={isRoomCreator && player.id !== socket.id ? "관리자: 팀 변경" : "팀 변경"}>
