@@ -284,6 +284,35 @@ io.on('connection', (socket) => {
     socket.emit('available-rooms', availableRooms);
   });
   
+  // 방 상태 요청 이벤트 처리 (새로 추가)
+  socket.on('request-room-status', (roomId) => {
+    console.log(`User ${socket.nickname || socket.data.nickname || 'unknown'} requested room status for ${roomId}`);
+    
+    if (!gameRooms[roomId]) {
+      return;
+    }
+    
+    const room = gameRooms[roomId];
+    
+    // 요청한 클라이언트에게 최신 방 상태 전송
+    socket.emit('room-status-update', {
+      status: room.status,
+      players: room.players,
+      redTeam: room.redTeam,
+      blueTeam: room.blueTeam,
+      settings: room.settings
+    });
+    
+    // 다른 모든 클라이언트에게도 최신 상태 동기화 (선택 사항)
+    socket.to(roomId).emit('room-status-update', {
+      status: room.status,
+      players: room.players,
+      redTeam: room.redTeam,
+      blueTeam: room.blueTeam,
+      settings: room.settings
+    });
+  });
+  
   // 새 게임룸 생성
   socket.on('create-room', (options = {}) => {
     const roomId = `room_${Date.now()}`;
@@ -369,6 +398,10 @@ io.on('connection', (socket) => {
     // 플레이어 목록에 추가
     room.players.push(player);
     
+    console.log(`Player ${player.nickname} joined room ${roomId}`);
+    console.log(`Room ${roomId} now has ${room.players.length} players`);
+    console.log(`Red team: ${room.redTeam.length}, Blue team: ${room.blueTeam.length}`);
+    
     // 클라이언트에게 입장 성공 알림
     socket.emit('room-joined', {
       roomId,
@@ -381,6 +414,21 @@ io.on('connection', (socket) => {
     
     // 다른 플레이어들에게 새 플레이어 참가 알림
     socket.to(roomId).emit('player-joined', player);
+    
+    // 모든 클라이언트에게 팀 업데이트 알림 (추가)
+    io.to(roomId).emit('teams-updated', {
+      redTeam: room.redTeam,
+      blueTeam: room.blueTeam
+    });
+    
+    // 방 상태 전체 업데이트 전송 (추가)
+    io.to(roomId).emit('room-status-update', {
+      status: room.status,
+      players: room.players,
+      redTeam: room.redTeam,
+      blueTeam: room.blueTeam,
+      settings: room.settings
+    });
     
     // 게임 시작 조건 체크
     const canStartGame = checkGameStart(roomId);
@@ -619,10 +667,22 @@ io.on('connection', (socket) => {
       }
     }
     
+    console.log(`Player ${player.nickname} changed team to ${player.team}`);
+    console.log(`Room ${roomId} now has red: ${room.redTeam.length}, blue: ${room.blueTeam.length}`);
+    
     // 모든 플레이어에게 팀 변경 알림
     io.to(roomId).emit('teams-updated', {
       redTeam: room.redTeam,
       blueTeam: room.blueTeam
+    });
+    
+    // 방 상태 전체 업데이트도 함께 전송 (새로 추가)
+    io.to(roomId).emit('room-status-update', {
+      status: room.status,
+      players: room.players,
+      redTeam: room.redTeam,
+      blueTeam: room.blueTeam,
+      settings: room.settings
     });
   }
   
@@ -650,6 +710,9 @@ io.on('connection', (socket) => {
         
         room.players.splice(playerIndex, 1);
         
+        console.log(`Player removed from room ${roomId}. Remaining players: ${room.players.length}`);
+        console.log(`Red team: ${room.redTeam.length}, Blue team: ${room.blueTeam.length}`);
+        
         // 다른 플레이어들에게 알림
         io.to(roomId).emit('player-left', { id: socket.id });
         io.to(roomId).emit('teams-updated', {
@@ -657,9 +720,19 @@ io.on('connection', (socket) => {
           blueTeam: room.blueTeam
         });
         
+        // 방 상태 전체 업데이트도 함께 전송 (새로 추가)
+        io.to(roomId).emit('room-status-update', {
+          status: room.status,
+          players: room.players,
+          redTeam: room.redTeam,
+          blueTeam: room.blueTeam,
+          settings: room.settings
+        });
+        
         // 게임 중이면서 플레이어가 없으면 게임룸 삭제
         if (room.players.length === 0) {
           delete gameRooms[roomId];
+          console.log(`Room ${roomId} deleted as it's empty`);
         }
         // 게임 진행 중이고 한 팀에 플레이어가 없으면 게임 종료
         else if (room.status === 'playing' && 

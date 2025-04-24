@@ -322,6 +322,12 @@ function GameRoomScreen() {
   useEffect(() => {
     if (!socket) return;
     
+    // 방 입장 즉시 팀 정보 요청
+    if (roomId) {
+      console.log('Requesting room status update on entry');
+      socket.emit('request-room-status', roomId);
+    }
+    
     // 방 입장 성공
     socket.on('room-joined', (data) => {
       console.log('Room joined with settings:', data.settings);
@@ -341,6 +347,19 @@ function GameRoomScreen() {
       }
     });
     
+    // 방 상태 업데이트 (새로 추가)
+    socket.on('room-status-update', (data) => {
+      console.log('Room status update received:', data);
+      
+      setGameState(prev => ({
+        ...prev,
+        redTeam: data.redTeam || [],
+        blueTeam: data.blueTeam || [],
+      }));
+      
+      setTeamSettings(data.settings);
+    });
+    
     // 다른 플레이어 입장
     socket.on('player-joined', (player) => {
       console.log('Player joined:', player);
@@ -358,10 +377,26 @@ function GameRoomScreen() {
           };
         }
       });
+      
+      // 상태 업데이트 요청 (새로 추가)
+      setTimeout(() => {
+        socket.emit('request-room-status', roomId);
+      }, 500);
     });
     
+    // 팀 업데이트 이벤트
+    socket.on('teams-updated', (teams) => {
+      console.log('Teams updated:', teams);
+      setGameState(prev => ({
+        ...prev,
+        redTeam: teams.redTeam || [],
+        blueTeam: teams.blueTeam || []
+      }));
+    });
+
     // 플레이어 퇴장
     socket.on('player-left', (data) => {
+      console.log('Player left:', data);
       setGameState(prev => {
         // 팀에서 플레이어 제거
         const updatedRedTeam = prev.redTeam.filter(p => p.id !== data.id);
@@ -373,6 +408,11 @@ function GameRoomScreen() {
           blueTeam: updatedBlueTeam
         };
       });
+      
+      // 상태 업데이트 요청 (새로 추가)
+      setTimeout(() => {
+        socket.emit('request-room-status', roomId);
+      }, 500);
     });
     
     // 게임 시작 카운트다운
@@ -456,16 +496,14 @@ function GameRoomScreen() {
       setTeamSettings(settings);
     });
     
-    // 팀 업데이트 이벤트 (추가)
-    socket.on('teams-updated', (teams) => {
-      console.log('Teams updated:', teams);
-      setGameState(prev => ({
-        ...prev,
-        redTeam: teams.redTeam || [],
-        blueTeam: teams.blueTeam || []
-      }));
-    });
-    
+    // 주기적인 상태 동기화 (새로 추가)
+    const statusInterval = setInterval(() => {
+      if (socket && roomId && gameState.status === 'waiting') {
+        console.log('Periodic room status check');
+        socket.emit('request-room-status', roomId);
+      }
+    }, 10000); // 10초마다 상태 동기화
+
     // 컴포넌트 언마운트 시 이벤트 리스너 제거
     return () => {
       socket.off('room-joined');
@@ -478,12 +516,15 @@ function GameRoomScreen() {
       socket.off('game-end');
       socket.off('room-settings-updated');
       socket.off('teams-updated');
+      socket.off('room-status-update'); // 새로 추가
       
       if (countdownInterval.current) {
         clearInterval(countdownInterval.current);
       }
+      
+      clearInterval(statusInterval); // 새로 추가
     };
-  }, [socket]);
+  }, [socket, roomId]);
   
   // 사용자 입력 처리
   const handleTyping = (word) => {
